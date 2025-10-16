@@ -2,6 +2,7 @@ package fs_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/renatopp/go-fs"
@@ -236,4 +237,68 @@ func Test_AppendFileString(t *testing.T) {
 	data, err := fs.ReadFileString(file.Name())
 	failIf(t, err)
 	assert.Equal(t, content1+content2, data)
+}
+
+func Test_AppendFileLines(t *testing.T) {
+	lines1 := []string{"Line 1", "Line 2"}
+	lines2 := []string{"Line 3", "Line 4"}
+	tempName := filepath.Join(os.TempDir(), "appendlines")
+	defer os.RemoveAll(tempName)
+
+	err := fs.AppendFileLines(tempName, lines1)
+	failIf(t, err)
+
+	err = fs.AppendFileLines(tempName, lines2)
+	failIf(t, err)
+
+	data, err := fs.ReadFileLines(tempName)
+	failIf(t, err)
+	assert.Equal(t, append(lines1, lines2...), data)
+}
+
+func Test_AppendFileJson(t *testing.T) {
+	type Person struct {
+		Name string `json:"name"`
+	}
+	person1 := Person{Name: "Alice"}
+	person2 := Person{Name: "Bob"}
+	tempName := filepath.Join(os.TempDir(), "appendlines")
+	defer os.RemoveAll(tempName)
+
+	err := fs.AppendFileJson(tempName, person1)
+	failIf(t, err)
+
+	err = fs.AppendFileJson(tempName, person2)
+	failIf(t, err)
+
+	lines, err := fs.ReadFileLines(tempName)
+	failIf(t, err)
+	assert.Equal(t, "{\"name\":\"Alice\"}", lines[0])
+	assert.Equal(t, "{\"name\":\"Bob\"}", lines[1])
+}
+
+func Test_AppendFileJson_Invalid(t *testing.T) {
+	ch := make(chan int) // channels cannot be JSON marshaled
+	file, fileDone := tempFile(t)
+	defer fileDone()
+
+	err := fs.AppendFileJson(file.Name(), ch)
+	assert.Error(t, err)
+}
+
+func Test_EnsureFile(t *testing.T) {
+	tempDir, dirDone := tempDir(t)
+	defer dirDone()
+
+	filePath := filepath.Join(tempDir, "subdir", "testfile.txt")
+	err := fs.EnsureFile(filePath)
+	failIf(t, err)
+	assert.True(t, fs.Exists(filePath))
+	assert.True(t, fs.IsFile(filePath))
+
+	// Ensuring again should not cause error
+	err = fs.EnsureFile(filePath)
+	failIf(t, err)
+	assert.True(t, fs.Exists(filePath))
+	assert.True(t, fs.IsFile(filePath))
 }

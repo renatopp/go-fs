@@ -2,9 +2,13 @@ package fs
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
+	"path"
 	"strings"
 )
+
+var ErrIsDir = errors.New("is a directory")
 
 // Exists checks if a file or directory exists at the given path.
 func Exists(path string) bool {
@@ -121,24 +125,58 @@ func AppendFileString(path string, data string) error {
 // AppendFileLines appends the given slice of strings to a file at the specified
 // path, with each string representing a line in the file. If the file does not
 // exist, it will be created.
+// If the file exists, a newline will be added before appending the new lines.
 func AppendFileLines(path string, lines []string) error {
-	data := strings.Join(lines, "\n") + "\n"
+	data := strings.Join(lines, "\n")
+	if Exists(path) {
+		data = "\n" + data
+	}
 	return AppendFileString(path, data)
 }
 
 // AppendFileJson appends the JSON representation of the given variable v to a
 // file at the specified path. If the file does not exist, it will be created.
 // Json will be appended without indentation or newlines.
+// If the file exists, a newline will be added before appending the new JSON.
 func AppendFileJson(path string, v any) error {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	return AppendFile(path, data)
+	str := string(data)
+	if Exists(path) {
+		str = "\n" + str
+	}
+	return AppendFile(path, []byte(str))
+}
+
+// EnsureFile ensures that a file exists at the specified path. If the file does
+// not exist, it creates an empty file. If the directories in the path do not
+// exist, they will be created as well. If the file already exists, it does nothing,
+// but if the path is a directory, it will return an error.
+func EnsureFile(p string) error {
+	if IsDir(p) {
+		return ErrIsDir
+	}
+
+	dirs := path.Dir(p)
+	err := os.MkdirAll(dirs, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	if Exists(p) {
+		return nil
+	}
+	file, err := os.Create(p)
+	if err != nil {
+		return err
+	}
+	file.Close()
+	return nil
 }
 
 // // File operations for raw
-// func AppendFile(path string, data []byte) error
 // func EnsureFile(path string) error
 // func ReplaceInFile(path string, old []byte, new []byte) error
 // func Touch(path string) error
