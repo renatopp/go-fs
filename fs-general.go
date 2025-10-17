@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"context"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -13,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 // ----------------------------------------------------------------------------
@@ -125,6 +124,10 @@ func IsHidden(p string) (bool, error) {
 	return strings.HasPrefix(base, "."), nil
 }
 
+func IsPatternValid(pattern string) bool {
+	return doublestar.ValidatePattern(pattern)
+}
+
 func ForceIsHidden(p string) bool {
 	hidden, _ := IsHidden(p)
 	return hidden
@@ -213,12 +216,12 @@ func ForceListRecursive(p string) []string {
 // matching file. The syntax of patterns is the same as in filepath.Match.
 // The pattern may describe hierarchical names such as /usr/*/bin/ed (assuming
 // the Separator is '/').
-func Glob(dir string, pattern string) ([]string, error) {
-	files, err := filepath.Glob(filepath.Join(dir, pattern))
+func Glob(dir, pattern string) ([]string, error) {
+	files, err := doublestar.Glob(nil, filepath.Join(dir, pattern))
 	if files == nil {
 		files = []string{}
 	}
-	r := len(dir) + len(string(os.PathSeparator))
+	r := len(dir) + len(PathSeparator)
 	for i, f := range files {
 		files[i] = f[r:]
 	}
@@ -228,6 +231,15 @@ func Glob(dir string, pattern string) ([]string, error) {
 func ForceGlob(dir string, pattern string) []string {
 	files, _ := Glob(dir, pattern)
 	return files
+}
+
+func Match(p, pattern string) (bool, error) {
+	return doublestar.Match(pattern, p)
+}
+
+func ForceMatch(p, pattern string) bool {
+	matched, _ := Match(p, pattern)
+	return matched
 }
 
 // ----------------------------------------------------------------------------
@@ -337,6 +349,16 @@ func Chdir(p string) error {
 
 func SetOwner(p string, uid, gid int) error {
 	return os.Chown(p, uid, gid)
+}
+
+func Empty(p string) error {
+	if IsDir(p) {
+		return EmptyDir(p)
+	} else if IsFile(p) {
+		return TruncateFile(p, 0)
+	} else {
+		return os.ErrNotExist
+	}
 }
 
 // ----------------------------------------------------------------------------
@@ -476,56 +498,4 @@ func Getwd() (string, error) {
 // Pwd is an alias for Getwd.
 func Pwd() (string, error) {
 	return GetCurrentDir()
-}
-
-func Watch(ctx context.Context, p string, callback func(event Event)) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
-
-	cctx, cancel := context.WithCancel(ctx)
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					cancel()
-					return
-				}
-				callback(Event{
-					Op:   event.Op,
-					Path: event.Name,
-				})
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					cancel()
-					return
-				}
-				callback(Event{
-					Op:  EvtError,
-					Err: err,
-				})
-			case <-cctx.Done():
-				return
-			}
-		}
-	}()
-
-	err = watcher.Add(p)
-	if err != nil {
-		cancel()
-		return err
-	}
-
-	<-cctx.Done()
-
-	return nil
-}
-
-func GlobWatch(ctx context.Context, dir string, pattern string, callback func(event Event)) error {
-	// watcher coroutine
-	// glob coroutine
-	// coordination
 }

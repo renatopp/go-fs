@@ -109,6 +109,27 @@ func sizeDir(p string) (int64, error) {
 	return totalSize, nil
 }
 
+// EmptyDir removes all contents of the directory at the specified path without
+// deleting the directory itself. If the directory does not exist, it returns
+// an error. If the path points to a file, it returns an error.
+func EmptyDir(p string) error {
+	if !IsDir(p) {
+		return ErrNotDir
+	}
+	entries, err := os.ReadDir(p)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		entryPath := filepath.Join(p, entry.Name())
+		err := os.RemoveAll(entryPath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ----------------------------------------------------------------------------
 // PUBLIC
 // ----------------------------------------------------------------------------
@@ -193,27 +214,6 @@ func ForceListDirsRecursive(p string) []string {
 // returns nil.
 func CreateDir(p string) error {
 	return os.MkdirAll(p, 0755)
-}
-
-// EmptyDir removes all contents of the directory at the specified path without
-// deleting the directory itself. If the directory does not exist, it returns
-// an error. If the path points to a file, it returns an error.
-func EmptyDir(p string) error {
-	if !IsDir(p) {
-		return ErrNotDir
-	}
-	entries, err := os.ReadDir(p)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		entryPath := filepath.Join(p, entry.Name())
-		err := os.RemoveAll(entryPath)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // EnsureDir ensures that a directory exists at the specified path. It follows

@@ -14,6 +14,11 @@ import (
 // INTERNAL
 // ----------------------------------------------------------------------------
 
+// isEmptyFile checks if the file at the specified path is empty.
+//
+// It returns a value and an error. The value is true if the file is empty,
+// false if it contains data or if there was an error. If the path points to a
+// directory or does not exist, it returns an appropriate error.
 func isEmptyFile(p string) (bool, error) {
 	info, err := os.Stat(p)
 	if err != nil {

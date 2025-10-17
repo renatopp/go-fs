@@ -31,6 +31,7 @@ type Event struct {
 func (e Event) Has(op fsnotify.Op) bool {
 	return e.Op.Has(op)
 }
+
 func (e Event) String() string {
 	res := e.Op.String()
 	if e.Has(EvtError) {
