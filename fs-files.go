@@ -2,21 +2,71 @@ package fs
 
 import (
 	"bytes"
-	"crypto/md5"
-	"crypto/sha1"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"hash"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"time"
 )
 
 // ----------------------------------------------------------------------------
-// CHECKS
+// INTERNAL
+// ----------------------------------------------------------------------------
+
+func isEmptyFile(p string) (bool, error) {
+	info, err := os.Stat(p)
+	if err != nil {
+		return false, err
+	}
+	if info.IsDir() {
+		return false, ErrIsDir
+	}
+	return info.Size() == 0, nil
+}
+
+// copyFile copies a file from src to dst. If dst does not exist, it will be
+// created. If it exists, it will be overwritten.
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = srcFile.WriteTo(dstFile)
+	return err
+}
+
+// sizeFile returns the size of the file at the specified path in bytes. If the
+// path points to a directory or does not exist, it returns an error.
+func sizeFile(p string) (int64, error) {
+	info, err := os.Stat(p)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
+}
+
+// hashFile computes the hash of the file at the specified path using the
+// provided hash function and returns it as a hexadecimal string.
+func hashFile(p string, h hash.Hash) (string, error) {
+	data, err := ReadFile(p)
+	if err != nil {
+		return "", err
+	}
+	h.Write(data)
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// ----------------------------------------------------------------------------
+// PUBLIC
 // ----------------------------------------------------------------------------
 
 // IsFile checks if the given p is a file. If the p does not exist or is
@@ -28,90 +78,6 @@ func IsFile(p string) bool {
 	}
 	return !info.IsDir()
 }
-
-// IsSameFile checks if two paths point to the same file.
-func IsSameFile(p1, p2 string) bool {
-	if !IsFile(p1) || !IsFile(p2) {
-		return false
-	}
-	return IsSame(p1, p2)
-}
-
-// IsEmptyFile checks if the file at the specified path is empty (has a size of
-// zero bytes). If the path points to a directory or does not exist, it returns
-// an error.
-func IsEmptyFile(p string) (bool, error) {
-	info, err := os.Stat(p)
-	if err != nil {
-		return false, err
-	}
-	if info.IsDir() {
-		return false, ErrIsDir
-	}
-	return info.Size() == 0, nil
-}
-
-// IsExecutable checks if a file at the specified path is executable.
-func IsExecutableFile(p string) bool {
-	if !IsFile(p) {
-		return false
-	}
-	info, err := os.Stat(p)
-	if err != nil {
-		return false
-	}
-	mode := info.Mode()
-	if mode&0111 != 0 {
-		return true
-	}
-	if runtime.GOOS == "windows" {
-		ext := strings.ToLower(filepath.Ext(p))
-		pathext := os.Getenv("PATHEXT")
-		for _, e := range strings.Split(pathext, ";") {
-			if strings.ToLower(e) == ext {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// IsReadable checks if a file at the specified path is readable.
-func IsReadableFile(p string) bool {
-	if !IsFile(p) {
-		return false
-	}
-	file, err := os.OpenFile(p, os.O_RDONLY, 0)
-	if err != nil {
-		return false
-	}
-	file.Close()
-	return true
-}
-
-// IsWritable checks if a file at the specified path is writable.
-func IsWritableFile(p string) bool {
-	if !IsFile(p) {
-		return false
-	}
-	file, err := os.OpenFile(p, os.O_WRONLY, 0)
-	if err != nil {
-		return false
-	}
-	file.Close()
-	return true
-}
-
-func IsHiddenFile(p string) (bool, error) {
-	if !IsFile(p) {
-		return false, ErrNotFile
-	}
-	return IsHidden(p)
-}
-
-// ----------------------------------------------------------------------------
-// TRAVERSAL
-// ----------------------------------------------------------------------------
 
 // ListFiles returns a slice of names of all files within the specified
 // directory path. If the directory does not exist or is not accessible, it
@@ -165,10 +131,6 @@ func ListFilesRecursive(p string) ([]string, error) {
 	}
 	return results, nil
 }
-
-// ----------------------------------------------------------------------------
-// OPERATIONS
-// ----------------------------------------------------------------------------
 
 // ReadFile reads the entire content of a file and returns it as a byte slice.
 func ReadFile(p string) ([]byte, error) {
@@ -356,47 +318,6 @@ func CreateTempFileOpen(prefix string) (*os.File, error) {
 	return os.CreateTemp("", prefix)
 }
 
-// CopyFile copies a file from src to dst. If dst does not exist, it will be
-// created. If it exists, it will be overwritten.
-func CopyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	_, err = srcFile.WriteTo(dstFile)
-	return err
-}
-
-// MoveFile moves a file from src to dst. If dst exists, it will be overwritten.
-func MoveFile(src, dst string) error {
-	if !IsFile(src) {
-		return ErrNotFile
-	}
-	return os.Rename(src, dst)
-}
-
-// RenameFile renames a file from oldPath to newPath. It is an alias for MoveFile.
-func RenameFile(oldPath, newPath string) error {
-	return MoveFile(oldPath, newPath)
-}
-
-// DeleteFile deletes the file at the specified path. If the path points to a
-// directory or does not exist, it returns an error.
-func DeleteFile(p string) error {
-	if !IsFile(p) {
-		return ErrNotFile
-	}
-	return os.Remove(p)
-}
-
 // TruncateFile truncates the file at the specified path to the given size in
 // bytes. If the path points to a directory or does not exist, it returns an
 // error.
@@ -405,141 +326,4 @@ func TruncateFile(p string, size int64) error {
 		return ErrIsDir
 	}
 	return os.Truncate(p, size)
-}
-
-func SetModeFile(p string, mode os.FileMode) error {
-	if !IsFile(p) {
-		return ErrNotFile
-	}
-	return os.Chmod(p, mode)
-}
-
-func SetHiddenFile(p string, hidden bool) error {
-	if !IsFile(p) {
-		return ErrNotFile
-	}
-	return SetHidden(p, hidden)
-}
-
-func HideFile(p string) error {
-	return SetHiddenFile(p, true)
-}
-
-func UnhideFile(p string) error {
-	return SetHiddenFile(p, false)
-}
-
-func SetOwnerFile(p string, uid, gid int) error {
-	if !IsFile(p) {
-		return ErrNotFile
-	}
-	return SetOwner(p, uid, gid)
-}
-
-// ----------------------------------------------------------------------------
-// LINKS
-// ----------------------------------------------------------------------------
-
-// LinkFile creates a hard link from oldname to newname. If oldname does not
-// exist or is not a file, it returns an error.
-func LinkFile(oldname, newname string) error {
-	if !IsFile(oldname) {
-		return ErrNotFile
-	}
-	return Link(oldname, newname)
-}
-
-// SymlinkFile creates a symbolic link from oldname to newname. If oldname
-// does not exist or is not a file, it returns an error.
-func SymlinkFile(oldname, newname string) error {
-	if !IsFile(oldname) {
-		return ErrNotFile
-	}
-	return Symlink(oldname, newname)
-}
-
-// ReadlinkFile reads the target of a symbolic link. If the path does not
-// point to a file or is not a symbolic link, it returns an error.
-func ReadlinkFile(p string) (string, error) {
-	if !IsFile(p) {
-		return "", ErrNotFile
-	}
-	return Readlink(p)
-}
-
-// ----------------------------------------------------------------------------
-// HASHING
-// ----------------------------------------------------------------------------
-
-// MD5File computes the MD5 checksum of the file at the specified path and
-// returns it as a hexadecimal string.
-func MD5File(p string) (string, error) {
-	return HashFile(p, md5.New())
-}
-
-// SHA1File computes the SHA-1 checksum of the file at the specified path and
-// returns it as a hexadecimal string.
-func SHA1File(p string) (string, error) {
-	return HashFile(p, sha1.New())
-}
-
-// SHA256File computes the SHA-256 checksum of the file at the specified path and
-// returns it as a hexadecimal string.
-func SHA256File(p string) (string, error) {
-	return HashFile(p, sha256.New())
-}
-
-// ChecksumFile computes the MD5 checksum of the file at the specified path and
-// returns it as a hexadecimal string. It is an alias for MD5File.
-func ChecksumFile(p string) (string, error) {
-	return MD5File(p)
-}
-
-// HashFile computes the hash of the file at the specified path using the
-// provided hash function and returns it as a hexadecimal string.
-func HashFile(p string, h hash.Hash) (string, error) {
-	data, err := ReadFile(p)
-	if err != nil {
-		return "", err
-	}
-	h.Write(data)
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
-}
-
-// ----------------------------------------------------------------------------
-// INFO
-// ----------------------------------------------------------------------------
-
-// SizeFile returns the size of the file at the specified path in bytes. If the
-// path points to a directory or does not exist, it returns an error.
-func SizeFile(p string) (int64, error) {
-	info, err := os.Stat(p)
-	if err != nil {
-		return 0, err
-	}
-	if info.IsDir() {
-		return 0, ErrIsDir
-	}
-	return info.Size(), nil
-}
-
-func GetModTimeFile(p string) (time.Time, error) {
-	if !IsFile(p) {
-		return time.Time{}, ErrNotFile
-	}
-	return GetModTime(p)
-}
-
-func GetInfoFile(p string) (os.FileInfo, error) {
-	if !IsFile(p) {
-		return nil, ErrNotFile
-	}
-	return GetInfo(p)
-}
-
-func GetModeFile(p string) (os.FileMode, error) {
-	if !IsFile(p) {
-		return 0, ErrNotFile
-	}
-	return GetMode(p)
 }

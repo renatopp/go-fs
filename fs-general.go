@@ -1,6 +1,9 @@
 package fs
 
 import (
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
 	"hash"
 	"os"
 	"path/filepath"
@@ -26,9 +29,9 @@ func Exists(p string) bool {
 // If the path does not exist, it returns an error but also true.
 func IsEmpty(p string) (bool, error) {
 	if IsDir(p) {
-		return IsEmptyDir(p)
+		return isEmptyDir(p)
 	} else if IsFile(p) {
-		return IsEmptyFile(p)
+		return isEmptyFile(p)
 	} else {
 		return true, os.ErrNotExist
 	}
@@ -48,17 +51,53 @@ func IsSame(p1, p2 string) bool {
 
 // IsExecutable checks if a file at the specified path is executable.
 func IsExecutable(p string) bool {
-	return IsExecutableFile(p)
+	if !IsFile(p) {
+		return false
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return false
+	}
+	mode := info.Mode()
+	if mode&0111 != 0 {
+		return true
+	}
+	if runtime.GOOS == "windows" {
+		ext := strings.ToLower(filepath.Ext(p))
+		pathext := os.Getenv("PATHEXT")
+		for _, e := range strings.Split(pathext, ";") {
+			if strings.ToLower(e) == ext {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // IsReadable checks if a file at the specified path is readable.
 func IsReadable(p string) bool {
-	return IsReadableFile(p)
+	if !IsFile(p) {
+		return false
+	}
+	file, err := os.OpenFile(p, os.O_RDONLY, 0)
+	if err != nil {
+		return false
+	}
+	file.Close()
+	return true
 }
 
 // IsWritable checks if a file at the specified path is writable.
 func IsWritable(p string) bool {
-	return IsWritableFile(p)
+	if !IsFile(p) {
+		return false
+	}
+	file, err := os.OpenFile(p, os.O_WRONLY, 0)
+	if err != nil {
+		return false
+	}
+	file.Close()
+	return true
 }
 
 func IsHidden(p string) (bool, error) {
@@ -173,9 +212,9 @@ func Glob(dir string, pattern string) ([]string, error) {
 // (for directories) or overwritten (for files).
 func Copy(src, dst string) error {
 	if IsDir(src) {
-		return CopyDir(src, dst)
+		return copyDir(src, dst)
 	}
-	return CopyFile(src, dst)
+	return copyFile(src, dst)
 }
 
 // Move moves a file or directory from src to dst. It is equivalent to renaming
@@ -297,22 +336,27 @@ func Readlink(p string) (string, error) {
 // HASHING
 // ----------------------------------------------------------------------------
 
-// Checksum computes the MD5 checksum of a file or directory at the specified
-// path. If the path is a directory, it computes a combined checksum of all
-// files within the directory recursively. It returns the checksum as a
-// hexadecimal string.
+func MD5(p string) (string, error) {
+	return Hash(p, md5.New())
+}
+
+func SHA1(p string) (string, error) {
+	return Hash(p, sha1.New())
+}
+
+func SHA256(path string) (string, error) {
+	return Hash(path, sha256.New())
+}
+
 func Checksum(p string) (string, error) {
-	if IsDir(p) {
-		return ChecksumDir(p)
-	}
-	return ChecksumFile(p)
+	return Hash(p, md5.New())
 }
 
 func Hash(p string, h hash.Hash) (string, error) {
 	if IsDir(p) {
-		return HashDir(p, h)
+		return hashDir(p, h)
 	}
-	return HashFile(p, h)
+	return hashFile(p, h)
 }
 
 // ----------------------------------------------------------------------------
@@ -324,9 +368,9 @@ func Hash(p string, h hash.Hash) (string, error) {
 // the directory recursively. It returns the size in bytes.
 func Size(p string) (int64, error) {
 	if IsDir(p) {
-		return SizeDir(p)
+		return sizeDir(p)
 	}
-	return SizeFile(p)
+	return sizeFile(p)
 }
 
 // GetModTime returns the modification time of a file at the specified path as a

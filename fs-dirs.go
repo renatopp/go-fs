@@ -1,9 +1,6 @@
 package fs
 
 import (
-	"crypto/md5"
-	"crypto/sha1"
-	"crypto/sha256"
 	"fmt"
 	"hash"
 	"os"
@@ -12,7 +9,108 @@ import (
 )
 
 // ----------------------------------------------------------------------------
-// CHECKS
+// INTERNAL
+// ----------------------------------------------------------------------------
+
+// isEmptyDir checks if the directory at the specified path is empty. It
+// returns true if the directory is empty, false if it contains files or
+// subdirectories, and an error if the path does not exist or is not a
+// directory.
+func isEmptyDir(p string) (bool, error) {
+	if !IsDir(p) {
+		return false, ErrNotDir
+	}
+	entries, err := os.ReadDir(p)
+	if err != nil {
+		return false, err
+	}
+	return len(entries) == 0, nil
+}
+
+// copyDir recursively copies a directory from src to dst. If dst does not
+// exist, it will be created. If it exists, it will be merged with the src.
+func copyDir(src, dst string) error {
+	err := os.MkdirAll(dst, 0755)
+	if err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			err = copyDir(srcPath, dstPath)
+		} else {
+			err = copyFile(srcPath, dstPath)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// hashDir computes a combined hash of all files in the specified
+// directory using the provided hash function. It processes files recursively in a
+// deterministic order to ensure consistent results. It returns the final hash
+// as a hexadecimal string.
+func hashDir(p string, h hash.Hash) (string, error) {
+	entries, err := List(p)
+	if err != nil {
+		return "", err
+	}
+
+	slices.Sort(entries)
+
+	for _, entry := range entries {
+		if IsDir(entry) {
+			subDirHash, err := hashDir(filepath.Join(p, entry), h)
+			if err != nil {
+				return "", err
+			}
+			h.Write([]byte(subDirHash))
+		} else {
+			fileHash, err := hashFile(filepath.Join(p, entry), h)
+			if err != nil {
+				return "", err
+			}
+			h.Write([]byte(fileHash))
+		}
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// sizeDir computes the total size of all files within the specified directory
+// and its subdirectories. It returns the total size in bytes.
+func sizeDir(p string) (int64, error) {
+	if !IsDir(p) {
+		return 0, ErrNotDir
+	}
+
+	var totalSize int64 = 0
+	entries, err := ListFilesRecursive(p)
+	if err != nil {
+		return 0, err
+	}
+	for _, entry := range entries {
+		size, err := sizeFile(filepath.Join(p, entry))
+		if err != nil {
+			return 0, err
+		}
+		totalSize += size
+	}
+	return totalSize, nil
+}
+
+// ----------------------------------------------------------------------------
+// PUBLIC
 // ----------------------------------------------------------------------------
 
 // IsDir checks if the given p is a directory. If the p does not exist
@@ -24,39 +122,6 @@ func IsDir(p string) bool {
 	}
 	return info.IsDir()
 }
-
-// IsEmptyDir checks if the directory at the specified path is empty. It
-// returns true if the directory is empty, false if it contains files or
-// subdirectories, and an error if the path does not exist or is not a
-// directory.
-func IsEmptyDir(p string) (bool, error) {
-	if !IsDir(p) {
-		return false, ErrNotDir
-	}
-	entries, err := os.ReadDir(p)
-	if err != nil {
-		return false, err
-	}
-	return len(entries) == 0, nil
-}
-
-func IsSameDir(p1, p2 string) bool {
-	if !IsDir(p1) || !IsDir(p2) {
-		return false
-	}
-	return IsSame(p1, p2)
-}
-
-func IsHiddenDir(p string) (bool, error) {
-	if !IsDir(p) {
-		return false, ErrNotDir
-	}
-	return IsHidden(p)
-}
-
-// ----------------------------------------------------------------------------
-// TRAVERSAL
-// ----------------------------------------------------------------------------
 
 // ListDirs returns a slice of names of all directories within the specified
 // directory path. If the directory does not exist or is not accessible, it
@@ -113,10 +178,6 @@ func ListDirsRecursive(p string) ([]string, error) {
 	return results, nil
 }
 
-// ----------------------------------------------------------------------------
-// OPERATIONS
-// ----------------------------------------------------------------------------
-
 // CreateDir creates a directory at the specified path, including any necessary
 // parent directories. If the directory already exists, it does nothing and
 // returns nil.
@@ -167,123 +228,6 @@ func EnsureDir(p string) error {
 // directory.
 func CreateTempDir(prefix string) (string, error) {
 	return os.MkdirTemp("", prefix)
-}
-
-// CopyDir recursively copies a directory from src to dst. If dst does not
-// exist, it will be created. If it exists, it will be merged with the src.
-func CopyDir(src, dst string) error {
-	err := os.MkdirAll(dst, 0755)
-	if err != nil {
-		return err
-	}
-
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if entry.IsDir() {
-			err = CopyDir(srcPath, dstPath)
-		} else {
-			err = CopyFile(srcPath, dstPath)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// ----------------------------------------------------------------------------
-// HASHING
-// ----------------------------------------------------------------------------
-
-// MD5Dir computes a combined MD5 hash of all files in the specified directory.
-// It processes files recursively in a deterministic order to ensure consistent
-// results. It returns the final hash as a hexadecimal string.
-func MD5Dir(p string) (string, error) {
-	return HashDir(p, md5.New())
-}
-
-// SHA1Dir computes a combined SHA-1 hash of all files in the specified directory.
-// It processes files recursively in a deterministic order to ensure consistent
-// results. It returns the final hash as a hexadecimal string.
-func SHA1Dir(p string) (string, error) {
-	return HashDir(p, sha1.New())
-}
-
-// SHA256Dir computes a combined SHA-256 hash of all files in the specified
-// directory. It processes files recursively in a deterministic order to ensure
-// consistent results. It returns the final hash as a hexadecimal string.
-func SHA256Dir(p string) (string, error) {
-	return HashDir(p, sha256.New())
-}
-
-// ChecksumDir computes a combined MD5 hash of all files in the specified
-// directory. It is an alias for MD5Dir.
-func ChecksumDir(p string) (string, error) {
-	return MD5Dir(p)
-}
-
-// HashDir computes a combined hash of all files in the specified
-// directory using the provided hash function. It processes files recursively in a
-// deterministic order to ensure consistent results. It returns the final hash
-// as a hexadecimal string.
-func HashDir(p string, h hash.Hash) (string, error) {
-	entries, err := List(p)
-	if err != nil {
-		return "", err
-	}
-
-	slices.Sort(entries)
-
-	for _, entry := range entries {
-		if IsDir(entry) {
-			subDirHash, err := HashDir(filepath.Join(p, entry), h)
-			if err != nil {
-				return "", err
-			}
-			h.Write([]byte(subDirHash))
-		} else {
-			fileHash, err := HashFile(filepath.Join(p, entry), h)
-			if err != nil {
-				return "", err
-			}
-			h.Write([]byte(fileHash))
-		}
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
-}
-
-// ----------------------------------------------------------------------------
-// INFO
-// ----------------------------------------------------------------------------
-
-// SizeDir computes the total size of all files within the specified directory
-// and its subdirectories. It returns the total size in bytes.
-func SizeDir(p string) (int64, error) {
-	if !IsDir(p) {
-		return 0, ErrNotDir
-	}
-
-	var totalSize int64 = 0
-	entries, err := ListFilesRecursive(p)
-	if err != nil {
-		return 0, err
-	}
-	for _, entry := range entries {
-		size, err := SizeFile(filepath.Join(p, entry))
-		if err != nil {
-			return 0, err
-		}
-		totalSize += size
-	}
-	return totalSize, nil
 }
 
 // GetCurrentDir is an alias for Getwd.
