@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"text/tabwriter"
+
+	"github.com/renatopp/go-fs"
 )
 
 type Writer struct {
@@ -24,6 +27,12 @@ func (w *Writer) Flush() {
 func main() {
 	writer := &Writer{w: tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)}
 	defer writer.Flush()
+
+	//..
+	println("Watching...") //
+	fs.Watch(context.Background(), "example", func(event fs.Event) {
+		fmt.Printf("Event: %s, Path: %s, Err: %v\n", event.String(), event.Path, event.Err)
+	})
 
 	// sep := ""
 	// writer.Write(sep, sep)

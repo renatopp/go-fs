@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 // ----------------------------------------------------------------------------
@@ -473,4 +476,56 @@ func Getwd() (string, error) {
 // Pwd is an alias for Getwd.
 func Pwd() (string, error) {
 	return GetCurrentDir()
+}
+
+func Watch(ctx context.Context, p string, callback func(event Event)) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+
+	cctx, cancel := context.WithCancel(ctx)
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					cancel()
+					return
+				}
+				callback(Event{
+					Op:   event.Op,
+					Path: event.Name,
+				})
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					cancel()
+					return
+				}
+				callback(Event{
+					Op:  EvtError,
+					Err: err,
+				})
+			case <-cctx.Done():
+				return
+			}
+		}
+	}()
+
+	err = watcher.Add(p)
+	if err != nil {
+		cancel()
+		return err
+	}
+
+	<-cctx.Done()
+
+	return nil
+}
+
+func GlobWatch(ctx context.Context, dir string, pattern string, callback func(event Event)) error {
+	// watcher coroutine
+	// glob coroutine
+	// coordination
 }
