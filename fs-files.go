@@ -100,6 +100,11 @@ func ListFiles(p string) ([]string, error) {
 	return files, nil
 }
 
+func ForceListFiles(p string) []string {
+	files, _ := ListFiles(p)
+	return files
+}
+
 // ListFilesRecursive returns a slice of relative paths of all files within the
 // specified directory path and its subdirectories. If the directory does not
 // exist or is not accessible, it returns an error. The returned paths are
@@ -132,15 +137,33 @@ func ListFilesRecursive(p string) ([]string, error) {
 	return results, nil
 }
 
+func ForceListFilesRecursive(p string) []string {
+	files, _ := ListFilesRecursive(p)
+	return files
+}
+
 // ReadFile reads the entire content of a file and returns it as a byte slice.
 func ReadFile(p string) ([]byte, error) {
 	return os.ReadFile(p)
+}
+
+func ForceReadFile(p string) []byte {
+	data, err := ReadFile(p)
+	if err != nil {
+		return []byte{}
+	}
+	return data
 }
 
 // ReadFileString reads the entire content of a file and returns it as a string.
 func ReadFileString(p string) (string, error) {
 	data, err := ReadFile(p)
 	return string(data), err
+}
+
+func ForceReadFileString(p string) string {
+	str, _ := ReadFileString(p)
+	return str
 }
 
 // ReadFileLines reads a file and returns its content as a slice of strings,
@@ -151,6 +174,11 @@ func ReadFileLines(p string) ([]string, error) {
 		return []string{}, err
 	}
 	return strings.Split(string(data), "\n"), nil
+}
+
+func ForceReadFileLines(p string) []string {
+	lines, _ := ReadFileLines(p)
+	return lines
 }
 
 // ReadFileJson reads a JSON file and unmarshals its content into the provided
@@ -310,6 +338,11 @@ func CreateTempFile(prefix string) (string, error) {
 	}
 	f.Close()
 	return f.Name(), nil
+}
+
+func ForceCreateTempFile(prefix string) string {
+	p, _ := CreateTempFile(prefix)
+	return p
 }
 
 // CreateTempFileOpen creates a temporary file with the specified prefix in the

@@ -37,6 +37,11 @@ func IsEmpty(p string) (bool, error) {
 	}
 }
 
+func ForceIsEmpty(p string) bool {
+	empty, _ := IsEmpty(p)
+	return empty
+}
+
 func IsSame(p1, p2 string) bool {
 	s1, err := os.Stat(p1)
 	if err != nil {
@@ -117,6 +122,11 @@ func IsHidden(p string) (bool, error) {
 	return strings.HasPrefix(base, "."), nil
 }
 
+func ForceIsHidden(p string) bool {
+	hidden, _ := IsHidden(p)
+	return hidden
+}
+
 // ----------------------------------------------------------------------------
 // TRAVERSAL
 // ----------------------------------------------------------------------------
@@ -154,6 +164,11 @@ func List(p string) ([]string, error) {
 	return names, nil
 }
 
+func ForceList(p string) []string {
+	list, _ := List(p)
+	return list
+}
+
 // ListRecursive returns a slice of relative paths of all entries (files and
 // directories) within the specified directory path and its subdirectories.
 // If the directory does not exist or is not accessible, it returns an error.
@@ -186,6 +201,11 @@ func ListRecursive(p string) ([]string, error) {
 	return results, nil
 }
 
+func ForceListRecursive(p string) []string {
+	list, _ := ListRecursive(p)
+	return list
+}
+
 // Glob returns the names of all files matching pattern or nil if there is no
 // matching file. The syntax of patterns is the same as in filepath.Match.
 // The pattern may describe hierarchical names such as /usr/*/bin/ed (assuming
@@ -200,6 +220,11 @@ func Glob(dir string, pattern string) ([]string, error) {
 		files[i] = f[r:]
 	}
 	return files, err
+}
+
+func ForceGlob(dir string, pattern string) []string {
+	files, _ := Glob(dir, pattern)
+	return files
 }
 
 // ----------------------------------------------------------------------------
@@ -332,6 +357,11 @@ func Readlink(p string) (string, error) {
 	return os.Readlink(p)
 }
 
+func ForceReadlink(p string) string {
+	link, _ := Readlink(p)
+	return link
+}
+
 // ----------------------------------------------------------------------------
 // HASHING
 // ----------------------------------------------------------------------------
@@ -340,16 +370,36 @@ func MD5(p string) (string, error) {
 	return Hash(p, md5.New())
 }
 
+func ForceMD5(p string) string {
+	sum, _ := MD5(p)
+	return sum
+}
+
 func SHA1(p string) (string, error) {
 	return Hash(p, sha1.New())
+}
+
+func ForceSHA1(p string) string {
+	sum, _ := SHA1(p)
+	return sum
 }
 
 func SHA256(path string) (string, error) {
 	return Hash(path, sha256.New())
 }
 
+func ForceSHA256(path string) string {
+	sum, _ := SHA256(path)
+	return sum
+}
+
 func Checksum(p string) (string, error) {
 	return Hash(p, md5.New())
+}
+
+func ForceChecksum(p string) string {
+	sum, _ := Checksum(p)
+	return sum
 }
 
 func Hash(p string, h hash.Hash) (string, error) {
@@ -357,6 +407,11 @@ func Hash(p string, h hash.Hash) (string, error) {
 		return hashDir(p, h)
 	}
 	return hashFile(p, h)
+}
+
+func ForceHash(p string, h hash.Hash) string {
+	sum, _ := Hash(p, h)
+	return sum
 }
 
 // ----------------------------------------------------------------------------
@@ -373,6 +428,11 @@ func Size(p string) (int64, error) {
 	return sizeFile(p)
 }
 
+func ForceSize(p string) int64 {
+	size, _ := Size(p)
+	return size
+}
+
 // GetModTime returns the modification time of a file at the specified path as a
 // Unix timestamp (seconds since January 1, 1970). If the path does not exist
 // or is a directory, it returns an error.
@@ -382,6 +442,11 @@ func GetModTime(p string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return info.ModTime(), nil
+}
+
+func ForceGetModTime(p string) time.Time {
+	t, _ := GetModTime(p)
+	return t
 }
 
 // GetInfo returns a FileInfo describing the file at the specified path. If the

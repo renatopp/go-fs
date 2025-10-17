@@ -144,6 +144,11 @@ func ListDirs(p string) ([]string, error) {
 	return dirs, nil
 }
 
+func ForceListDirs(p string) []string {
+	dirs, _ := ListDirs(p)
+	return dirs
+}
+
 // ListDirsRecursive returns a slice of relative paths of all directories within
 // the specified directory path and its subdirectories. If the directory does
 // not exist or is not accessible, it returns an error. The returned paths are
@@ -176,6 +181,11 @@ func ListDirsRecursive(p string) ([]string, error) {
 		return nil, err
 	}
 	return results, nil
+}
+
+func ForceListDirsRecursive(p string) []string {
+	dirs, _ := ListDirsRecursive(p)
+	return dirs
 }
 
 // CreateDir creates a directory at the specified path, including any necessary
@@ -230,9 +240,19 @@ func CreateTempDir(prefix string) (string, error) {
 	return os.MkdirTemp("", prefix)
 }
 
+func ForceCreateTempDir(prefix string) string {
+	dir, _ := CreateTempDir(prefix)
+	return dir
+}
+
 // GetCurrentDir is an alias for Getwd.
 func GetCurrentDir() (string, error) {
 	return os.Getwd()
+}
+
+func ForceGetCurrentDir() string {
+	dir, _ := GetCurrentDir()
+	return dir
 }
 
 // GetTempDir returns the default temporary directory of the system.
@@ -245,14 +265,29 @@ func GetCacheDir() (string, error) {
 	return os.UserCacheDir()
 }
 
+func ForceGetCacheDir() string {
+	dir, _ := GetCacheDir()
+	return dir
+}
+
 // GetConfigDir returns the configuration directory of the current user.
 func GetConfigDir() (string, error) {
 	return os.UserConfigDir()
 }
 
+func ForceGetConfigDir() string {
+	dir, _ := GetConfigDir()
+	return dir
+}
+
 // GetHomeDir returns the home directory of the current user.
 func GetHomeDir() (string, error) {
 	return os.UserHomeDir()
+}
+
+func ForceGetHomeDir() string {
+	dir, _ := GetHomeDir()
+	return dir
 }
 
 func GetParentDir(p string) (string, error) {
@@ -265,6 +300,12 @@ func GetParentDir(p string) (string, error) {
 	}
 	return GetPathParent(p), ErrNotExist
 }
+
+func ForceGetParentDir(p string) string {
+	dir, _ := GetParentDir(p)
+	return dir
+}
+
 func GetParentDirName(p string) (string, error) {
 	p = Force(AbsolutePath(p))
 	if IsFile(p) {
@@ -274,6 +315,11 @@ func GetParentDirName(p string) (string, error) {
 		return GetPathBase(p), nil
 	}
 	return GetPathParentName(p), ErrNotExist
+}
+
+func ForceGetParentDirName(p string) string {
+	name, _ := GetParentDirName(p)
+	return name
 }
 
 func GetDirParts(p string) PathParts {

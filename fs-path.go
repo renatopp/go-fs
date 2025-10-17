@@ -5,26 +5,6 @@ import (
 	"strings"
 )
 
-// Parts of /home/users/renato/dev/fs/path.go
-// - absolute: /home/users/renato/dev/fs/path.go
-// - base: path.go
-// - name: path
-// - ext: .go
-// - ext name: go
-// - parent: /home/users/renato/dev/fs
-// - parent name: fs
-// - volume: ""
-//
-// Parts of /home/users/renato/dev/fs/stuff (no info about file or dir)
-// - absolute: /home/users/renato/dev/fs/stuff
-// - base: stuff
-// - name: stuff
-// - ext: ""
-// - ext name: ""
-// - parent: /home/users/renato/dev/fs
-// - parent name: fs
-// - volume: ""
-
 type PathParts struct {
 	Absolute   string // Absolute path (eg: /home/users/dev/fs/path.go)
 	Base       string // Base name (eg: path.go)
@@ -60,20 +40,30 @@ func AbsolutePath(p string) (string, error) {
 	return absPath, nil
 }
 
+func ForceAbsolutePath(p string) string {
+	abs, _ := AbsolutePath(p)
+	return abs
+}
+
 func RelativePath(base, target string) (string, error) {
 	absBase, err := AbsolutePath(base)
 	if err != nil {
-		return "", err
+		return target, err
 	}
 	absTarget, err := AbsolutePath(target)
 	if err != nil {
-		return "", err
+		return target, err
 	}
 	relPath, err := filepath.Rel(absBase, absTarget)
 	if err != nil {
-		return "", err
+		return target, err
 	}
 	return relPath, nil
+}
+
+func ForceRelativePath(base, target string) string {
+	rel, _ := RelativePath(base, target)
+	return rel
 }
 
 func IsAbsolutePath(p string) bool {
@@ -148,7 +138,7 @@ func GetPathVolume(p string) string {
 }
 
 func GetPathParts(p string) PathParts {
-	abs := Force(AbsolutePath(p))
+	abs := ForceAbsolutePath(p)
 	return PathParts{
 		Absolute:   abs,
 		Base:       GetPathBase(abs),
