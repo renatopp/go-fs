@@ -254,3 +254,41 @@ func GetConfigDir() (string, error) {
 func GetHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
+
+func GetParentDir(p string) (string, error) {
+	p = Force(AbsolutePath(p))
+	if IsFile(p) {
+		return GetPathParent(p), nil
+	}
+	if IsDir(p) {
+		return p, nil
+	}
+	return GetPathParent(p), ErrNotExist
+}
+func GetParentDirName(p string) (string, error) {
+	p = Force(AbsolutePath(p))
+	if IsFile(p) {
+		return GetPathParentName(p), nil
+	}
+	if IsDir(p) {
+		return GetPathBase(p), nil
+	}
+	return GetPathParentName(p), ErrNotExist
+}
+
+func GetDirParts(p string) PathParts {
+	p = Force(AbsolutePath(p))
+	if IsDir(p) {
+		return PathParts{
+			Absolute:   p,
+			Base:       GetPathBase(p),
+			Name:       GetPathBase(p),
+			Ext:        "",
+			ExtName:    "",
+			Parent:     GetPathParent(p),
+			ParentName: GetPathParentName(p),
+			Volume:     GetPathVolume(p),
+		}
+	}
+	return GetPathParts(p)
+}

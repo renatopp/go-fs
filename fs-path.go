@@ -1,18 +1,40 @@
 package fs
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 )
 
-// /home/users/renato/dev/fs/path.go
-// base: path.go
-// stem: path
-// ext: .go
-// volume: ""
-// dir: /home/users/renato/dev/fs
-// parent: fs
+// Parts of /home/users/renato/dev/fs/path.go
+// - absolute: /home/users/renato/dev/fs/path.go
+// - base: path.go
+// - name: path
+// - ext: .go
+// - ext name: go
+// - parent: /home/users/renato/dev/fs
+// - parent name: fs
+// - volume: ""
+//
+// Parts of /home/users/renato/dev/fs/stuff (no info about file or dir)
+// - absolute: /home/users/renato/dev/fs/stuff
+// - base: stuff
+// - name: stuff
+// - ext: ""
+// - ext name: ""
+// - parent: /home/users/renato/dev/fs
+// - parent name: fs
+// - volume: ""
+
+type PathParts struct {
+	Absolute   string // Absolute path (eg: /home/users/dev/fs/path.go)
+	Base       string // Base name (eg: path.go)
+	Name       string // Name without extension (eg: path)
+	Ext        string // Extension with dot (eg: .go)
+	ExtName    string // Extension without dot (eg: go)
+	Parent     string // Parent directory (eg: /home/users/dev/fs)
+	ParentName string // Parent directory name (eg: fs)
+	Volume     string // Volume name (eg: C: on Windows, empty on Unix)
+}
 
 func JoinPath(elem ...string) string {
 	return filepath.Join(elem...)
@@ -54,79 +76,87 @@ func RelativePath(base, target string) (string, error) {
 	return relPath, nil
 }
 
-func ExtensionPath(p string) string {
-	return filepath.Ext(p)
-}
-
-func HasExtensionPath(p string) bool {
-	return filepath.Ext(p) != ""
-}
-
-func StemPath(p string) string {
-	ext := filepath.Ext(p)
-	return strings.TrimSuffix(filepath.Base(p), ext)
-}
-
-func BasePath(p string) string {
-	return filepath.Base(p)
-}
-
-func DirPath(p string) string {
-	return filepath.Dir(p)
-}
-
-func VolumePath(p string) string {
-	return filepath.VolumeName(p)
-}
-
-func SplitPath(p string) (dir, file string) {
-	return filepath.Split(p)
-}
-
-func SplitExtPath(p string) (string, string) {
-	ext := filepath.Ext(p)
-	stem := strings.TrimSuffix(filepath.Base(p), ext)
-	dir := filepath.Dir(p)
-	return filepath.Join(dir, stem), ext
-}
-
-func ParentPathName(p string) string {
-	dir := filepath.Dir(p)
-	return filepath.Base(dir)
-}
-
 func IsAbsolutePath(p string) bool {
 	return filepath.IsAbs(p)
-}
-
-func ToSlashPath(p string) string {
-	return filepath.ToSlash(p)
 }
 
 func CleanPath(p string) string {
 	return filepath.Clean(p)
 }
 
-func GetDir(p string) (string, error) {
-	if !Exists(p) {
-		return "", os.ErrNotExist
-	}
-
-	if IsFile(p) {
-		return filepath.Dir(p), nil
-	}
-
-	return p, nil
+func ToBackslashPath(p string) string {
+	return strings.ReplaceAll(p, "/", "\\")
 }
 
-func GetParentDirName(p string) (string, error) {
-	dir, err := GetDir(p)
-	if err != nil {
-		return "", err
+func FromBackslashPath(p string) string {
+	return strings.ReplaceAll(p, "\\", "/")
+}
+
+func ToSlashPath(p string) string {
+	return filepath.ToSlash(p)
+}
+
+func FromSlashPath(p string) string {
+	return filepath.FromSlash(p)
+}
+
+func IsSlashPath(p string) bool {
+	return strings.Contains(p, "/")
+}
+
+func IsBackslashPath(p string) bool {
+	return strings.Contains(p, "\\")
+}
+
+func HasExtensionPath(p string) bool {
+	return filepath.Ext(p) != ""
+}
+
+func SplitPath(p string) []string {
+	return strings.Split(ToSlashPath(p), "/")
+}
+
+func GetPathBase(p string) string {
+	return filepath.Base(p)
+}
+
+func GetPathName(p string) string {
+	ext := filepath.Ext(p)
+	return strings.TrimSuffix(filepath.Base(p), ext)
+}
+
+func GetPathExtension(p string) string {
+	return filepath.Ext(p)
+}
+
+func GetPathExtensionName(p string) string {
+	ext := filepath.Ext(p)
+	return strings.TrimPrefix(ext, ".")
+}
+
+func GetPathParent(p string) string {
+	return filepath.Dir(p)
+}
+
+func GetPathParentName(p string) string {
+	dir := filepath.Dir(p)
+	return filepath.Base(dir)
+}
+
+func GetPathVolume(p string) string {
+	return filepath.VolumeName(p)
+}
+
+func GetPathParts(p string) PathParts {
+	abs := Force(AbsolutePath(p))
+	return PathParts{
+		Absolute:   abs,
+		Base:       GetPathBase(abs),
+		Name:       GetPathName(abs),
+		Ext:        GetPathExtension(abs),
+		ExtName:    GetPathExtensionName(abs),
+		Parent:     GetPathParent(abs),
+		ParentName: GetPathParentName(abs),
+		Volume:     GetPathVolume(abs),
 	}
-	parent := filepath.Dir(dir)
-	if parent == dir {
-		return "", nil
-	}
-	return filepath.Base(parent), nil
 }
