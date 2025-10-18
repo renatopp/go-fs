@@ -1,3 +1,5 @@
+// Package fs provides utilities for file system operations, including error handling,
+// directory management, path manipulations, and event monitoring.
 package fs
 
 import (

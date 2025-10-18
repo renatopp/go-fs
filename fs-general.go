@@ -15,10 +15,6 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 )
 
-// ----------------------------------------------------------------------------
-// CHECKS
-// ----------------------------------------------------------------------------
-
 // Exists checks if a file or directory exists at the given p.
 func Exists(p string) bool {
 	_, err := os.Stat(p)
@@ -39,11 +35,14 @@ func IsEmpty(p string) (bool, error) {
 	}
 }
 
+// ForceIsEmpty is like IsEmpty but ignores any errors and returns false in such cases.
 func ForceIsEmpty(p string) bool {
 	empty, _ := IsEmpty(p)
 	return empty
 }
 
+// IsFile checks if two files or directories at the specified paths refer to the same file
+// or directory.
 func IsSame(p1, p2 string) bool {
 	s1, err := os.Stat(p1)
 	if err != nil {
@@ -56,7 +55,8 @@ func IsSame(p1, p2 string) bool {
 	return os.SameFile(s1, s2)
 }
 
-// IsExecutable checks if a file at the specified path is executable.
+// IsExecutable checks if a file at the specified path is executable. Directories
+// are considered not executable.
 func IsExecutable(p string) bool {
 	if !IsFile(p) {
 		return false
@@ -81,7 +81,8 @@ func IsExecutable(p string) bool {
 	return false
 }
 
-// IsReadable checks if a file at the specified path is readable.
+// IsReadable checks if a file at the specified path is readable. Directories
+// are considered not readable.
 func IsReadable(p string) bool {
 	if !IsFile(p) {
 		return false
@@ -94,7 +95,8 @@ func IsReadable(p string) bool {
 	return true
 }
 
-// IsWritable checks if a file at the specified path is writable.
+// IsWritable checks if a file at the specified path is writable. Directories
+// are considered not writable.
 func IsWritable(p string) bool {
 	if !IsFile(p) {
 		return false
@@ -107,6 +109,13 @@ func IsWritable(p string) bool {
 	return true
 }
 
+// IsHidden checks if a file or directory at the specified path is hidden.
+//
+// On Unix-like systems, a file or directory is considered hidden if its name
+// starts with a dot ('.').
+//
+// On Windows, a file or directory is considered hidden if it has the
+// FILE_ATTRIBUTE_HIDDEN attribute set.
 func IsHidden(p string) (bool, error) {
 	abs := Force(AbsolutePath(p))
 	base := filepath.Base(p)
@@ -124,29 +133,28 @@ func IsHidden(p string) (bool, error) {
 	return strings.HasPrefix(base, "."), nil
 }
 
-func IsPatternValid(pattern string) bool {
-	return doublestar.ValidatePattern(pattern)
-}
-
+// ForceIsHidden is like IsHidden but ignores any errors and returns false in
+// such cases.
 func ForceIsHidden(p string) bool {
 	hidden, _ := IsHidden(p)
 	return hidden
 }
 
-// ----------------------------------------------------------------------------
-// TRAVERSAL
-// ----------------------------------------------------------------------------
+// IsPatternValid checks if a glob pattern is valid.
+func IsPatternValid(pattern string) bool {
+	return doublestar.ValidatePattern(pattern)
+}
 
 // Walk traverses the directory tree rooted at the specified path, calling the
 // provided function for each file or directory encountered. The function receives
-// the full path of the file or directory as its argument. If the function
-// returns an error, the walk is aborted and the error is returned.
+// the relative path of the files or directories found as its argument. If the callback
+// function returns an error, the walk is aborted and the error is returned.
 func Walk(p string, fn func(string) error) error {
 	return filepath.WalkDir(p, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		return fn(path)
+		return fn(ForceRelativePath(p, path))
 	})
 }
 
@@ -170,6 +178,8 @@ func List(p string) ([]string, error) {
 	return names, nil
 }
 
+// ForceList is like List but ignores any errors and returns an empty slice
+// in such cases.
 func ForceList(p string) []string {
 	list, _ := List(p)
 	return list
@@ -207,6 +217,8 @@ func ListRecursive(p string) ([]string, error) {
 	return results, nil
 }
 
+// ForceListRecursive is like ListRecursive but ignores any errors and returns
+// an empty slice in such cases.
 func ForceListRecursive(p string) []string {
 	list, _ := ListRecursive(p)
 	return list
@@ -228,23 +240,25 @@ func Glob(dir, pattern string) ([]string, error) {
 	return files, err
 }
 
+// ForceGlob is like Glob but ignores any errors and returns an empty slice in
+// such cases.
 func ForceGlob(dir string, pattern string) []string {
 	files, _ := Glob(dir, pattern)
 	return files
 }
 
+// Match reports whether the path matches the given pattern. The pattern syntax
+// is the [doublestar](https://github.com/bmatcuk/doublestar#readme) syntax.
 func Match(p, pattern string) (bool, error) {
 	return doublestar.Match(pattern, p)
 }
 
+// ForceMatch is like Match but ignores any errors and returns false in such
+// cases.
 func ForceMatch(p, pattern string) bool {
 	matched, _ := Match(p, pattern)
 	return matched
 }
-
-// ----------------------------------------------------------------------------
-// OPERATIONS
-// ----------------------------------------------------------------------------
 
 // Copy copies a file or directory from src to dst. If src is a directory, it
 // copies the entire directory recursively. If src is a file, it copies the file.
@@ -285,6 +299,13 @@ func SetMode(p string, mode os.FileMode) error {
 	return os.Chmod(p, mode)
 }
 
+// SetHidden sets or unsets the hidden attribute of a file or directory at the
+// specified path.
+//
+// On Unix-like systems, it renames the file or directory to start with a dot ('.')
+// to hide it, or removes the leading dot to unhide it.
+//
+// On Windows, it sets or clears the FILE_ATTRIBUTE_HIDDEN attribute.
 func SetHidden(p string, hidden bool) error {
 	abs := Force(AbsolutePath(p))
 	if runtime.GOOS == "windows" {
@@ -321,10 +342,14 @@ func SetHidden(p string, hidden bool) error {
 	}
 }
 
+// Hide sets the hidden attribute of a file or directory at the specified path.
+// Same as SetHidden with hidden=true.
 func Hide(p string) error {
 	return SetHidden(p, true)
 }
 
+// Unhide clears the hidden attribute of a file or directory at the specified path.
+// Same as SetHidden with hidden=false.
 func Unhide(p string) error {
 	return SetHidden(p, false)
 }
@@ -347,10 +372,14 @@ func Chdir(p string) error {
 	return os.Chdir(p)
 }
 
+// SetOwner is an alias for Chown.
 func SetOwner(p string, uid, gid int) error {
 	return os.Chown(p, uid, gid)
 }
 
+// Empty removes all contents of a file or directory at the specified path. If
+// the path is a directory, it removes all files and subdirectories within it
+// but keeps the directory itself. If the path is a file, it truncates the file
 func Empty(p string) error {
 	if IsDir(p) {
 		return EmptyDir(p)
@@ -360,10 +389,6 @@ func Empty(p string) error {
 		return os.ErrNotExist
 	}
 }
-
-// ----------------------------------------------------------------------------
-// LINKS
-// ----------------------------------------------------------------------------
 
 // Link creates a hard link from src to dst. If src does not exist or dst
 // already exists, it returns an error.
@@ -382,51 +407,73 @@ func Readlink(p string) (string, error) {
 	return os.Readlink(p)
 }
 
+// ForceReadlink is like Readlink but ignores any errors and returns an empty
+// string in such cases.
 func ForceReadlink(p string) string {
 	link, _ := Readlink(p)
 	return link
 }
 
-// ----------------------------------------------------------------------------
-// HASHING
-// ----------------------------------------------------------------------------
-
+// MD5 computes the MD5 hash of a file or directory at the specified path. If the
+// path is a directory, it computes the hash based on the contents of all files
+// within the directory recursively. It returns the hash as a hexadecimal string.
 func MD5(p string) (string, error) {
 	return Hash(p, md5.New())
 }
 
+// ForceMD5 is like MD5 but ignores any errors and returns an empty string in
+// such cases.
 func ForceMD5(p string) string {
 	sum, _ := MD5(p)
 	return sum
 }
 
+// SHA1 computes the SHA-1 hash of a file or directory at the specified path. If
+// the path is a directory, it computes the hash based on the contents of all files
+// within the directory recursively. It returns the hash as a hexadecimal string.
 func SHA1(p string) (string, error) {
 	return Hash(p, sha1.New())
 }
 
+// ForceSHA1 is like SHA1 but ignores any errors and returns an empty string in
+// such cases.
 func ForceSHA1(p string) string {
 	sum, _ := SHA1(p)
 	return sum
 }
 
+// SHA256 computes the SHA-256 hash of a file or directory at the specified path.
+// If the path is a directory, it computes the hash based on the contents of all
+// files within the directory recursively. It returns the hash as a hexadecimal
+// string.
 func SHA256(path string) (string, error) {
 	return Hash(path, sha256.New())
 }
 
+// ForceSHA256 is like SHA256 but ignores any errors and returns an empty string in
+// such cases.
 func ForceSHA256(path string) string {
 	sum, _ := SHA256(path)
 	return sum
 }
 
+// Checksum computes the MD5 checksum of a file or directory at the specified path.
+// Alias for MD5.
 func Checksum(p string) (string, error) {
 	return Hash(p, md5.New())
 }
 
+// ForceChecksum is like Checksum but ignores any errors and returns an empty
+// string in such cases.
 func ForceChecksum(p string) string {
 	sum, _ := Checksum(p)
 	return sum
 }
 
+// Hash computes the hash of a file or directory at the specified path using the
+// provided hash.Hash implementation. If the path is a directory, it computes the
+// hash based on the contents of all files within the directory recursively.
+// It returns the hash as a hexadecimal string.
 func Hash(p string, h hash.Hash) (string, error) {
 	if IsDir(p) {
 		return hashDir(p, h)
@@ -434,14 +481,12 @@ func Hash(p string, h hash.Hash) (string, error) {
 	return hashFile(p, h)
 }
 
+// ForceHash is like Hash but ignores any errors and returns an empty string in
+// such cases.
 func ForceHash(p string, h hash.Hash) string {
 	sum, _ := Hash(p, h)
 	return sum
 }
-
-// ----------------------------------------------------------------------------
-// INFO
-// ----------------------------------------------------------------------------
 
 // Size returns the size of a file or directory at the specified path in bytes.
 // If the path is a directory, it computes the total size of all files within
@@ -453,6 +498,7 @@ func Size(p string) (int64, error) {
 	return sizeFile(p)
 }
 
+// ForceSize is like Size but ignores any errors and returns zero in such cases.
 func ForceSize(p string) int64 {
 	size, _ := Size(p)
 	return size
@@ -469,6 +515,8 @@ func GetModTime(p string) (time.Time, error) {
 	return info.ModTime(), nil
 }
 
+// ForceGetModTime is like GetModTime but ignores any errors and returns the
+// zero time in such cases.
 func ForceGetModTime(p string) time.Time {
 	t, _ := GetModTime(p)
 	return t

@@ -7,11 +7,13 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// Watcher represents a file system watcher.
 type Watcher struct {
 	watcher *fsnotify.Watcher
 	files   []string
 }
 
+// NewWatcher creates a new file system watcher.
 func NewWatcher() (*Watcher, error) {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -24,6 +26,8 @@ func NewWatcher() (*Watcher, error) {
 	}, nil
 }
 
+// Watch starts watching for file system events and invokes the provided
+// callback function for each event.
 func (w *Watcher) Watch(ctx context.Context, callback func(event Event)) error {
 	for {
 		select {
@@ -49,6 +53,7 @@ func (w *Watcher) Watch(ctx context.Context, callback func(event Event)) error {
 	}
 }
 
+// Add adds a path to the watcher.
 func (w *Watcher) Add(p string) error {
 	err := w.watcher.Add(p)
 	if err == nil {
@@ -57,10 +62,12 @@ func (w *Watcher) Add(p string) error {
 	return err
 }
 
+// Has checks if a path is being watched.
 func (w *Watcher) Has(path string) bool {
 	return slices.Contains(w.files, path)
 }
 
+// Remove removes a path from the watcher.
 func (w *Watcher) Remove(p string) error {
 	err := w.watcher.Remove(p)
 	if err == nil {
@@ -74,14 +81,18 @@ func (w *Watcher) Remove(p string) error {
 	return err
 }
 
+// WatchList returns the list of paths being watched.
 func (w *Watcher) WatchList() []string {
 	return w.watcher.WatchList()
 }
 
+// Close closes the watcher.
 func (w *Watcher) Close() error {
 	return w.watcher.Close()
 }
 
+// Watch watches a path for file system events and invokes the provided
+// callback function for each event.
 func Watch(ctx context.Context, p string, callback func(event Event)) error {
 	w, err := NewWatcher()
 	if err != nil {
@@ -91,6 +102,8 @@ func Watch(ctx context.Context, p string, callback func(event Event)) error {
 	return w.Watch(ctx, callback)
 }
 
+// WatchRecursive watches a path and all its subdirectories for file system
+// events and invokes the provided callback function for each event.
 func WatchRecursive(ctx context.Context, p string, callback func(event Event)) error {
 	w, err := NewWatcher()
 	if err != nil {
@@ -111,6 +124,8 @@ func WatchRecursive(ctx context.Context, p string, callback func(event Event)) e
 	})
 }
 
+// WatchGlob watches a directory for file system events matching a glob pattern
+// and invokes the provided callback function for each matching event.
 func WatchGlob(ctx context.Context, dir string, pattern string, callback func(event Event)) error {
 	if !IsPatternValid(pattern) {
 		return ErrInvalid

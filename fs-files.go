@@ -10,10 +10,6 @@ import (
 	"strings"
 )
 
-// ----------------------------------------------------------------------------
-// INTERNAL
-// ----------------------------------------------------------------------------
-
 // isEmptyFile checks if the file at the specified path is empty.
 //
 // It returns a value and an error. The value is true if the file is empty,
@@ -70,11 +66,7 @@ func hashFile(p string, h hash.Hash) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// ----------------------------------------------------------------------------
-// PUBLIC
-// ----------------------------------------------------------------------------
-
-// IsFile checks if the given p is a file. If the p does not exist or is
+// IsFile checks if the given path is a file. If the path does not exist or is
 // a directory, it returns false.
 func IsFile(p string) bool {
 	info, err := os.Stat(p)
@@ -85,9 +77,11 @@ func IsFile(p string) bool {
 }
 
 // ListFiles returns a slice of names of all files within the specified
-// directory path. If the directory does not exist or is not accessible, it
-// returns an error. This function does not include the full paths,
-// only the names of the entries.
+// directory path.
+//
+// If the directory does not exist or is not accessible, it returns an error. In
+// case of an error, the returned slice will be empty. Returned file names are
+// relative to the specified directory.
 //
 // This function is not recursive; it only lists entries in the specified
 // directory, not in its subdirectories.
@@ -105,15 +99,19 @@ func ListFiles(p string) ([]string, error) {
 	return files, nil
 }
 
+// ForceListFiles is like ListFiles but ignores any error and returns an empty
+// slice in case of failure.
 func ForceListFiles(p string) []string {
 	files, _ := ListFiles(p)
 	return files
 }
 
 // ListFilesRecursive returns a slice of relative paths of all files within the
-// specified directory path and its subdirectories. If the directory does not
-// exist or is not accessible, it returns an error. The returned paths are
-// relative to the specified directory.
+// specified directory path and its subdirectories.
+//
+// If the directory does not exist or is not accessible, it returns an error.
+// In case of an error, the returned slice will be empty. The returned paths
+// are relative to the specified directory.
 //
 // This function is recursive; it lists files in the specified directory
 // and all its subdirectories.
@@ -142,6 +140,8 @@ func ListFilesRecursive(p string) ([]string, error) {
 	return results, nil
 }
 
+// ForceListFilesRecursive is like ListFilesRecursive but ignores any error and
+// returns an empty slice in case of failure.
 func ForceListFilesRecursive(p string) []string {
 	files, _ := ListFilesRecursive(p)
 	return files
@@ -152,6 +152,8 @@ func ReadFile(p string) ([]byte, error) {
 	return os.ReadFile(p)
 }
 
+// ForceReadFile is like ReadFile but ignores any error and returns an empty
+// byte slice in case of failure.
 func ForceReadFile(p string) []byte {
 	data, err := ReadFile(p)
 	if err != nil {
@@ -166,6 +168,8 @@ func ReadFileString(p string) (string, error) {
 	return string(data), err
 }
 
+// ForceReadFileString is like ReadFileString but ignores any error and returns
+// an empty string in case of failure.
 func ForceReadFileString(p string) string {
 	str, _ := ReadFileString(p)
 	return str
@@ -181,6 +185,8 @@ func ReadFileLines(p string) ([]string, error) {
 	return strings.Split(string(data), "\n"), nil
 }
 
+// ForceReadFileLines is like ReadFileLines but ignores any error and returns
+// an empty slice in case of failure.
 func ForceReadFileLines(p string) []string {
 	lines, _ := ReadFileLines(p)
 	return lines
@@ -194,6 +200,22 @@ func ReadFileJson(p string, v any) error {
 		return err
 	}
 	return json.Unmarshal(data, v)
+}
+
+// ReadFileJsonAs reads a JSON file and unmarshals its content into a variable
+// of the specified type T. It returns the variable and any error encountered
+// during the process.
+func ReadFileJsonAs[T any](p string) (T, error) {
+	var v T
+	err := ReadFileJson(p, &v)
+	return v, err
+}
+
+// ForceReadFileJson is like ReadFileJson but ignores any error. It returns a zero-value
+// of the type in case of failure.
+func ForceReadFileJsonAs[T any](p string) T {
+	v, _ := ReadFileJsonAs[T](p)
+	return v
 }
 
 // WriteFile writes the given byte slice data to a file at the specified path.
@@ -345,6 +367,8 @@ func CreateTempFile(prefix string) (string, error) {
 	return f.Name(), nil
 }
 
+// ForceCreateTempFile is like CreateTempFile but ignores any error and returns
+// an empty string in case of failure.
 func ForceCreateTempFile(prefix string) string {
 	p, _ := CreateTempFile(prefix)
 	return p

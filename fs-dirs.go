@@ -8,10 +8,6 @@ import (
 	"slices"
 )
 
-// ----------------------------------------------------------------------------
-// INTERNAL
-// ----------------------------------------------------------------------------
-
 // isEmptyDir checks if the directory at the specified path is empty. It
 // returns true if the directory is empty, false if it contains files or
 // subdirectories, and an error if the path does not exist or is not a
@@ -130,10 +126,6 @@ func EmptyDir(p string) error {
 	return nil
 }
 
-// ----------------------------------------------------------------------------
-// PUBLIC
-// ----------------------------------------------------------------------------
-
 // IsDir checks if the given p is a directory. If the p does not exist
 // or is a file, it returns false.
 func IsDir(p string) bool {
@@ -165,6 +157,8 @@ func ListDirs(p string) ([]string, error) {
 	return dirs, nil
 }
 
+// ForceListDirs is like listDirs but it ignores any errors and returns only
+// the slice of directory names.
 func ForceListDirs(p string) []string {
 	dirs, _ := ListDirs(p)
 	return dirs
@@ -204,6 +198,8 @@ func ListDirsRecursive(p string) ([]string, error) {
 	return results, nil
 }
 
+// ForceListDirsRecursive is like ListDirsRecursive but it ignores any errors
+// and returns only the slice of directory paths.
 func ForceListDirsRecursive(p string) []string {
 	dirs, _ := ListDirsRecursive(p)
 	return dirs
@@ -240,6 +236,8 @@ func CreateTempDir(prefix string) (string, error) {
 	return os.MkdirTemp("", prefix)
 }
 
+// ForceCreateTempDir is like CreateTempDir but it ignores any errors and
+// returns only the path of the created temporary directory.
 func ForceCreateTempDir(prefix string) string {
 	dir, _ := CreateTempDir(prefix)
 	return dir
@@ -250,6 +248,8 @@ func GetCurrentDir() (string, error) {
 	return os.Getwd()
 }
 
+// ForceGetCurrentDir is like GetCurrentDir but it ignores any errors and
+// returns only the current directory path.
 func ForceGetCurrentDir() string {
 	dir, _ := GetCurrentDir()
 	return dir
@@ -265,6 +265,8 @@ func GetCacheDir() (string, error) {
 	return os.UserCacheDir()
 }
 
+// ForceGetCacheDir is like GetCacheDir but it ignores any errors and
+// returns only the cache directory path.
 func ForceGetCacheDir() string {
 	dir, _ := GetCacheDir()
 	return dir
@@ -275,6 +277,8 @@ func GetConfigDir() (string, error) {
 	return os.UserConfigDir()
 }
 
+// ForceGetConfigDir is like GetConfigDir but it ignores any errors and
+// returns only the configuration directory path.
 func ForceGetConfigDir() string {
 	dir, _ := GetConfigDir()
 	return dir
@@ -285,11 +289,17 @@ func GetHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
+// ForceGetHomeDir is like GetHomeDir but it ignores any errors and
+// returns only the home directory path.
 func ForceGetHomeDir() string {
 	dir, _ := GetHomeDir()
 	return dir
 }
 
+// GetParentDir returns the parent directory of the given path p. If p is a file,
+// it returns the parent directory of that file. If p is a directory, it returns
+// that directory itself. If the path does not exist, it returns an error but
+// also returns the parent directory path treating p as a file.
 func GetParentDir(p string) (string, error) {
 	p = Force(AbsolutePath(p))
 	if IsFile(p) {
@@ -301,11 +311,18 @@ func GetParentDir(p string) (string, error) {
 	return GetPathParent(p), ErrNotExist
 }
 
+// ForceGetParentDir is like GetParentDir but it ignores any errors and
+// returns only the parent directory path.
 func ForceGetParentDir(p string) string {
 	dir, _ := GetParentDir(p)
 	return dir
 }
 
+// GetParentDirName returns the name of the parent directory of the given path p.
+// If p is a file, it returns the name of its parent directory. If p is a
+// directory, it returns the name of that directory itself. If the path does not
+// exist, it returns an error but also returns the parent directory name treating p
+// as a file.
 func GetParentDirName(p string) (string, error) {
 	p = Force(AbsolutePath(p))
 	if IsFile(p) {
@@ -317,11 +334,15 @@ func GetParentDirName(p string) (string, error) {
 	return GetPathParentName(p), ErrNotExist
 }
 
+// ForceGetParentDirName is like GetParentDirName but it ignores any errors and
+// returns only the parent directory name.
 func ForceGetParentDirName(p string) string {
 	name, _ := GetParentDirName(p)
 	return name
 }
 
+// GetDirParts returns the PathParts structure for the given directory path p.
+// If p is a file, it returns the parts of its parent directory.
 func GetDirParts(p string) PathParts {
 	p = Force(AbsolutePath(p))
 	if IsDir(p) {
