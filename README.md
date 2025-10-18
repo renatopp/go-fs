@@ -1,37 +1,47 @@
-# File System Helpers
+A simple and intuitive Go library that provides convenient functions for file system operations. It offers a clean API for common tasks like reading files, manipulating paths, and watching for system events.
 
-This package tries to provide a more sane and cohesive way to interact with the file system.
+```go
+config, err := fs.ReadJsonAs[Config]("./config.json")
+if err != nil {
+  panic(err)
+}
+
+fs.WatchRecursive(context.Background(), config.BaseDir, func (e fs.Event) {
+  println(e.Path, "has changed")
+})
+```
 
 <!-- TOC -->
 
-- [File System Helpers](#file-system-helpers)
-  - [Installing](#installing)
-  - [Basic Usage](#basic-usage)
-  - [Naming Convention](#naming-convention)
-  - [Path Anatomy](#path-anatomy)
-  - [Watching](#watching)
+- [Getting Started](#getting-started)
+- [Path Anatomy](#path-anatomy)
+- [Watching](#watching)
 
 <!-- /TOC -->
 
-## Installing
+## Getting Started
 
-```
+```bash
 go get github.com/renatopp/go-fs
 ```
+After installing, you can import the package and use the `fs` name:
 
-## Basic Usage
-
-```
+```go
 import "github.com/renatopp/go-fs"
 
 func main() {
-  if fs.IsDir(".") {
-    println("ok")
-  }
+  fs.Watch(context.Background(), "./assets", func (e fs.Event) {
+    checksum := fs.ForceChecksum(e.Path)
+    if fs.IsDir(e.Path) {
+      println("DIR:", checksum)
+    } else {
+      println("FILE:", checksum)
+    }
+  })
 }
 ```
 
-## Naming Convention
+All functions are named to reflect how they can be used and their behavior:
 
 | Function | Description | Examples | 
 | --- | --- | --- |
